@@ -151,7 +151,8 @@ async def verify_otp(email: str, otp: str) -> dict:
 
     # Check expiration
     now = datetime.now(timezone.utc)
-    if now > otp_record["expires_at"]:
+    expires_at = otp_record["expires_at"].replace(tzinfo=timezone.utc)
+    if now > expires_at:
         await db[OTP_CODES].delete_one({"_id": otp_record["_id"]})
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -298,3 +299,100 @@ async def google_login(id_token: str) -> dict:
         "token_type": "bearer",
         "user": _public_user(user),
     }
+
+
+async def forgot_password(email: str) -> None:
+    """Initiate the forgot password flow.
+
+    • Checks if the user exists
+    • Generates a new OTP
+    • Sends the OTP via email
+    """
+    db = get_database()
+    user = await db[USERS].find_one({"email": email})
+
+    if not user:
+        # We don't raise an error here to prevent email enumeration.
+        # We just silently return.
+        logger.info("Forgot password requested for non-existent email: %s", email)
+        return
+
+    if user.get("auth_provider") == "google":
+        # Don't send OTPs for Google-auth accounts
+        logger.info("Forgot password requested for Google account: %s", email)
+        return
+
+    otp = await generate_otp(email)
+    await _send_otp_email(email, otp)
+    logger.info("Password reset OTP generated for %s", email)
+
+
+async def reset_password(email: str, otp: str, new_password: str) -> None:
+    """Validate OTP and update the user's password.
+
+    • Uses the exact same OTP verification logic but WITHOUT marking is_verified.
+    (We assume if they reset their password, they own the email anyway, but let's
+    keep it strictly focused on password reset).
+    """
+    db = get_database()
+
+    # 1. Verify user exists and is not a Google account
+    user = await db[USERS].find_one({"email": email})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    if user.get("auth_provider") == "google":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account uses Google login and cannot have its password reset.",
+        )
+
+    # 2. Verify OTP
+    otp_record = await db[OTP_CODES].find_one({"email": email})
+    if not otp_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No OTP found for this email. Please request a new one.",
+        )
+
+    if otp_record["attempts"] >= MAX_OTP_ATTEMPTS:
+        await db[OTP_CODES].delete_one({"_id": otp_record["_id"]})
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many OTP attempts. Please request a new OTP.",
+        )
+
+    # Increment attempts
+    await db[OTP_CODES].update_one(
+        {"_id": otp_record["_id"]},
+        {"$inc": {"attempts": 1}},
+    )
+
+    now = datetime.now(timezone.utc)
+    expires_at = otp_record["expires_at"].replace(tzinfo=timezone.utc)
+    if now > expires_at:
+        await db[OTP_CODES].delete_one({"_id": otp_record["_id"]})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP has expired. Please request a new one.",
+        )
+
+    if otp_record["otp"] != otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP.",
+        )
+
+    # 3. Update the password
+    new_hashed_password = hash_password(new_password)
+    await db[USERS].update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password_hash": new_hashed_password, "updated_at": now}}
+    )
+
+    # Clean up OTP
+    await db[OTP_CODES].delete_many({"email": email})
+    logger.info("Password reset successfully for %s", email)

@@ -41,6 +41,18 @@ class GoogleLoginRequest(BaseModel):
     id_token: str = Field(..., description="Google ID token from client-side sign-in")
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Payload to request a password reset OTP."""
+    email: EmailStr = Field(..., examples=["jane@medilens.ai"])
+
+
+class ResetPasswordRequest(BaseModel):
+    """Payload to reset password using an OTP."""
+    email: EmailStr = Field(..., examples=["jane@medilens.ai"])
+    otp: str = Field(..., min_length=6, max_length=6, examples=["123456"])
+    new_password: str = Field(..., min_length=8, max_length=128, examples=["N3wP@ssw0rd!"])
+
+
 # ── Response schemas ─────────────────────────
 
 class AuthResponse(BaseModel):
