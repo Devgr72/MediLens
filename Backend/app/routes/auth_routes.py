@@ -5,7 +5,7 @@ Authentication endpoints: signup, OTP verification, login, Google OAuth.
 All business logic is delegated to auth_service.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, BackgroundTasks
 
 from app.schemas.auth_schema import (
     AuthResponse,
@@ -37,12 +37,13 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
     status_code=status.HTTP_201_CREATED,
     summary="Register with email + password",
 )
-async def signup(payload: SignupRequest):
+async def signup(payload: SignupRequest, background_tasks: BackgroundTasks):
     """Create a new user account. An OTP is sent to the provided email for verification."""
     user = await create_user(
         name=payload.name,
         email=payload.email,
         password=payload.password,
+        background_tasks=background_tasks,
     )
     return {
         "message": "User registered successfully. Please verify your email with the OTP sent.",
@@ -67,7 +68,7 @@ async def verify_otp_route(payload: OTPVerifyRequest):
     "/resend-otp",
     summary="Resend OTP to email",
 )
-async def resend_otp_route(payload: ResendOTPRequest):
+async def resend_otp_route(payload: ResendOTPRequest, background_tasks: BackgroundTasks):
     """Generate a new OTP and send it to the user's email."""
     from app.config.database import get_database
 
@@ -82,9 +83,10 @@ async def resend_otp_route(payload: ResendOTPRequest):
 
     otp = await generate_otp(email=payload.email)
 
-    # Mock send — in production, call the real email service
-    from app.core.logger import logger
-    logger.info("📧 [MOCK] Resent OTP %s to %s", otp, payload.email)
+    # Send email in background
+    from app.services.auth_service import _send_otp_email
+    background_tasks.add_task(_send_otp_email, payload.email, otp)
+
 
     return {"message": "If an account exists with this email, a new OTP has been sent."}
 
@@ -113,9 +115,9 @@ async def google_login_route(payload: GoogleLoginRequest):
     "/forgot-password",
     summary="Request a password reset OTP",
 )
-async def forgot_password_route(payload: ForgotPasswordRequest):
+async def forgot_password_route(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     """Send a password reset OTP to the user's email if the account exists."""
-    await forgot_password(email=payload.email)
+    await forgot_password(email=payload.email, background_tasks=background_tasks)
     # Always return a generic success message to prevent email enumeration
     return {"message": "If that email is registered, we have sent a password reset OTP."}
 
