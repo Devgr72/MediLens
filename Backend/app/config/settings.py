@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     # ── Google OAuth ─────────────────────────
     GOOGLE_CLIENT_ID: str = ""
 
+    # ── SMTP / Email ─────────────────────────
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+
+
     class Config:
         env_file = str(ENV_FILE)
         env_file_encoding = "utf-8"

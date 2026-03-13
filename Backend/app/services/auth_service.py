@@ -52,12 +52,38 @@ def _public_user(user: dict) -> dict:
     }
 
 
-async def _send_otp_email(email: str, otp: str) -> None:
-    """Mock OTP email sender.
+import asyncio
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-    TODO: Replace with a real email service (SendGrid / AWS SES / SMTP).
-    """
-    logger.info("📧 [MOCK] OTP %s sent to %s", otp, email)
+async def _send_otp_email(email: str, otp: str) -> None:
+    """Send OTP email using SMTP."""
+    def send_email():
+        if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
+            logger.warning("SMTP credentials not set. Falling back to mock email.")
+            logger.info("📧 [MOCK] OTP %s sent to %s", otp, email)
+            return
+
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = settings.SMTP_USERNAME
+            msg["To"] = email
+            msg["Subject"] = "Your MediLens AI Verification Code"
+            
+            body = f"Hello,\n\nYour verification code is: {otp}\n\nThis code will expire in 15 minutes.\n\nBest regards,\nMediLens AI Team"
+            msg.attach(MIMEText(body, "plain"))
+
+            server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT)
+            server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+            server.quit()
+            logger.info("📧 OTP email sent successfully to %s", email)
+        except Exception as e:
+            logger.error("Failed to send OTP email: %s", e)
+            
+    await asyncio.to_thread(send_email)
 
 
 # ──────────────────────────────────────────────
