@@ -10,7 +10,7 @@ import string
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, BackgroundTasks
 
 from app.config.database import get_database
 from app.config.settings import settings
@@ -90,7 +90,7 @@ async def _send_otp_email(email: str, otp: str) -> None:
 # Public API
 # ──────────────────────────────────────────────
 
-async def create_user(name: str, email: str, password: str) -> dict:
+async def create_user(name: str, email: str, password: str, background_tasks: Optional[BackgroundTasks] = None) -> dict:
     """Register a new user with email + password.
 
     • Checks for duplicate email
@@ -132,7 +132,10 @@ async def create_user(name: str, email: str, password: str) -> dict:
 
     # Generate and send OTP
     otp = await generate_otp(email)
-    await _send_otp_email(email, otp)
+    if background_tasks:
+        background_tasks.add_task(_send_otp_email, email, otp)
+    else:
+        await _send_otp_email(email, otp)
 
     return _public_user(doc)
 
@@ -339,7 +342,7 @@ async def google_login(id_token: str) -> dict:
     }
 
 
-async def forgot_password(email: str) -> None:
+async def forgot_password(email: str, background_tasks: Optional[BackgroundTasks] = None) -> None:
     """Initiate the forgot password flow.
 
     • Checks if the user exists
@@ -361,7 +364,12 @@ async def forgot_password(email: str) -> None:
         return
 
     otp = await generate_otp(email)
-    await _send_otp_email(email, otp)
+    
+    if background_tasks:
+        background_tasks.add_task(_send_otp_email, email, otp)
+    else:
+        await _send_otp_email(email, otp)
+        
     logger.info("Password reset OTP generated for %s", email)
 
 
