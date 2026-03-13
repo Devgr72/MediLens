@@ -37,27 +37,34 @@ async def create_user(payload: UserCreate) -> dict:
     Returns the inserted document with its ``_id`` stringified.
     """
     existing = await get_user_by_email(payload.email)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists.",
-        )
-
+    db = get_database()
+    
     doc = user_document(
         name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
     )
 
-    db = get_database()
-    result = await db[USERS_COLLECTION].insert_one(doc)
-    doc["_id"] = str(result.inserted_id)
+    if existing:
+        if existing.get("is_verified"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists.",
+            )
+        doc["_id"] = existing["_id"]
+        await db[USERS_COLLECTION].replace_one({"_id": existing["_id"]}, doc)
+        doc["_id"] = str(existing["_id"])
+        logger.info("Unverified user overwritten — %s (%s)", payload.full_name, payload.email)
+    else:
+        result = await db[USERS_COLLECTION].insert_one(doc)
+        doc["_id"] = str(result.inserted_id)
+        logger.info("User created — %s (%s)", payload.full_name, payload.email)
+
     # Map back legacy schema fields for the response model
     doc["full_name"] = doc["name"]
     doc["is_active"] = doc["is_verified"]
     doc["updated_at"] = doc["last_login"]
 
-    logger.info("User created — %s (%s)", payload.full_name, payload.email)
     return doc
 
 
