@@ -5,10 +5,12 @@ import Image from "next/image";
 import { Bell, User, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AuthModal } from "./AuthModal";
 import { AuthResponse } from "./api/auth";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthResponse["user"] | null>(null);
@@ -17,6 +19,7 @@ export default function Navbar() {
     localStorage.setItem("medilens_token", _token);
     setCurrentUser(user);
     setIsAuthModalOpen(false);
+    router.push("/assessment");
   };
 
   const handleLogout = () => {

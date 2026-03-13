@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ShieldCheck, ChevronRight } from "lucide-react";
@@ -32,9 +33,11 @@ export default function Hero() {
             </p>
             
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-              <button className="inline-flex items-center justify-center rounded-2xl bg-[#074185] px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-[rgba(7,65,133,0.3)] transition-all hover:bg-[#074185]/90 hover:shadow-[rgba(7,65,133,0.4)]">
-                Start Assessment
-              </button>
+              <Link href="/assessment">
+                <button className="w-full inline-flex items-center justify-center rounded-2xl bg-[#074185] px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-[rgba(7,65,133,0.3)] transition-all hover:bg-[#074185]/90 hover:shadow-[rgba(7,65,133,0.4)]">
+                  Start Assessment
+                </button>
+              </Link>
               <button className="inline-flex items-center justify-center rounded-2xl border-2 border-[#074185] bg-white px-8 py-4 text-lg font-semibold text-[#074185] transition-all hover:bg-[#074185]/5">
                 How it works
               </button>

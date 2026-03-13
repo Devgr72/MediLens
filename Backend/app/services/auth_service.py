@@ -103,20 +103,32 @@ async def create_user(name: str, email: str, password: str) -> dict:
 
     existing = await db[USERS].find_one({"email": email})
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists.",
+        if existing.get("is_verified"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists.",
+            )
+        # If unverified, we update the existing record
+        await db[USERS].update_one(
+            {"_id": existing["_id"]},
+            {"$set": {
+                "name": name,
+                "password_hash": hash_password(password),
+                "created_at": datetime.now(timezone.utc)
+            }}
         )
-
-    doc = user_document(
-        name=name,
-        email=email,
-        password_hash=hash_password(password),
-        auth_provider="email",
-        is_verified=False,
-    )
-    await db[USERS].insert_one(doc)
-    logger.info("User created — %s (%s)", name, email)
+        doc = await db[USERS].find_one({"_id": existing["_id"]})
+        logger.info("Unverified user updated — %s (%s)", name, email)
+    else:
+        doc = user_document(
+            name=name,
+            email=email,
+            password_hash=hash_password(password),
+            auth_provider="email",
+            is_verified=False,
+        )
+        await db[USERS].insert_one(doc)
+        logger.info("User created — %s (%s)", name, email)
 
     # Generate and send OTP
     otp = await generate_otp(email)
