@@ -91,3 +91,27 @@ export async function resendOTP(email: string): Promise<MessageResponse> {
 export async function googleLogin(id_token: string): Promise<AuthResponse> {
   return request<AuthResponse>("/api/v1/auth/google-login", "POST", { id_token })
 }
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  email: string
+  otp: string
+  new_password: string
+}
+
+/**
+ * Request a password reset OTP.
+ */
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  return request<MessageResponse>("/api/v1/auth/forgot-password", "POST", { email })
+}
+
+/**
+ * Reset password using OTP.
+ */
+export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
+  return request<MessageResponse>("/api/v1/auth/reset-password", "POST", payload)
+}

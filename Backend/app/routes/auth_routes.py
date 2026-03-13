@@ -9,18 +9,23 @@ from fastapi import APIRouter, status
 
 from app.schemas.auth_schema import (
     AuthResponse,
+    ForgotPasswordRequest,
     GoogleLoginRequest,
     LoginRequest,
     MessageResponse,
     OTPVerifyRequest,
     ResendOTPRequest,
+    ResendOTPRequest,
+    ResetPasswordRequest,
     SignupRequest,
 )
 from app.services.auth_service import (
     create_user,
+    forgot_password,
     generate_otp,
     google_login,
     login_user,
+    reset_password,
     verify_otp,
 )
 
@@ -102,3 +107,28 @@ async def login(payload: LoginRequest):
 async def google_login_route(payload: GoogleLoginRequest):
     """Authenticate with a Google ID token. Creates a new user if one doesn't exist."""
     return await google_login(id_token=payload.id_token)
+
+
+@router.post(
+    "/forgot-password",
+    summary="Request a password reset OTP",
+)
+async def forgot_password_route(payload: ForgotPasswordRequest):
+    """Send a password reset OTP to the user's email if the account exists."""
+    await forgot_password(email=payload.email)
+    # Always return a generic success message to prevent email enumeration
+    return {"message": "If that email is registered, we have sent a password reset OTP."}
+
+
+@router.post(
+    "/reset-password",
+    summary="Reset password using OTP",
+)
+async def reset_password_route(payload: ResetPasswordRequest):
+    """Verify the OTP and update the user's password."""
+    await reset_password(
+        email=payload.email,
+        otp=payload.otp,
+        new_password=payload.new_password
+    )
+    return {"message": "Your password has been reset successfully. You can now log in."}
