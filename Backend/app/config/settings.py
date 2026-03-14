@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
 
+    # ── RAG AI Service ───────────────────────
+    RAG_SERVICE_URL: str = "http://localhost:9000/analyze"
+    RAG_TIMEOUT_SECONDS: int = 30
+
 
     class Config:
         env_file = str(ENV_FILE)
