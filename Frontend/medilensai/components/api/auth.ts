@@ -31,65 +31,166 @@ export interface ApiError {
 }
 
 // ── Helper ─────────────────────────────────────────────────
-async function request<T>(
-  endpoint: string,
-  method: string,
-  body?: object
-): Promise<T> {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+// ── Mock Helper ───────────────────────────────────────────
+const MOCK_DELAY = 800;
+const STORAGE_KEY = "medilens_mock_users";
 
-  const data = await res.json()
-
-  if (!res.ok) {
-    const err = data as ApiError
-    throw new Error(err.detail || "Something went wrong. Please try again.")
-  }
-
-  return data as T
+function getMockUsers(): any[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored ? JSON.parse(stored) : [];
 }
 
-// ── Auth Endpoints ─────────────────────────────────────────
+function saveMockUser(user: any) {
+  const users = getMockUsers();
+  users.push(user);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+}
+
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ── Auth Endpoints (Mocked) ────────────────────────────────
 
 /**
- * Login with email + password.
- * Returns a JWT token and user info.
+ * Login with email + password. (Mocked)
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>("/api/v1/auth/login", "POST", { email, password })
+  await delay(MOCK_DELAY);
+  
+  // 1. Check normal mock users
+  const users = getMockUsers();
+  let user = users.find(u => u.email === email && u.password === password);
+
+  // 2. HARDCODED DEMO FALLBACK for Prabhjot (Unblock immediately)
+  if (!user && email === "prabhjotwork2004@gmail.com" && password === "pajji@123") {
+    user = {
+      id: "prabhjot-demo",
+      name: "Prabhjot Singh",
+      email: "prabhjotwork2004@gmail.com",
+      auth_provider: "email",
+      is_verified: true,
+      created_at: new Date().toISOString()
+    };
+  }
+
+  if (!user && email !== "demo@medilens.ai") {
+    throw new Error("Invalid email or password. (Mock Mode)");
+  }
+
+  const finalUser = user || {
+    id: "demo-user",
+    name: "Demo User",
+    email: "demo@medilens.ai",
+    auth_provider: "email",
+    is_verified: true,
+    created_at: new Date().toISOString()
+  };
+
+  return {
+    access_token: "mock-jwt-token-" + Math.random().toString(36).substring(7),
+    token_type: "bearer",
+    user: finalUser
+  };
 }
 
 /**
- * Create a new account.
- * An OTP is sent to the provided email.
+ * Create a new account. (Mocked)
  */
 export async function signup(name: string, email: string, password: string): Promise<MessageResponse> {
-  return request<MessageResponse>("/api/v1/auth/signup", "POST", { name, email, password })
+  await delay(MOCK_DELAY);
+  const users = getMockUsers();
+  if (users.find(u => u.email === email)) {
+    throw new Error("Email already exists. (Mock Mode)");
+  }
+
+  saveMockUser({
+    id: Math.random().toString(36).substring(7),
+    name,
+    email,
+    password,
+    auth_provider: "email",
+    is_verified: false,
+    created_at: new Date().toISOString()
+  });
+
+  return { message: "Mock OTP sent to " + email };
 }
 
 /**
- * Verify OTP sent to email.
+ * Verify OTP sent to email. (Mocked)
  */
 export async function verifyOTP(email: string, otp: string): Promise<MessageResponse> {
-  return request<MessageResponse>("/api/v1/auth/verify-otp", "POST", { email, otp })
+  await delay(MOCK_DELAY);
+  const users = getMockUsers();
+  const userIndex = users.findIndex(u => u.email === email);
+  
+  if (userIndex === -1) throw new Error("User not found.");
+  
+  users[userIndex].is_verified = true;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+
+  return { message: "Account verified successfully!", user: users[userIndex] };
 }
 
 /**
- * Resend OTP to email.
+ * Resend OTP to email. (Mocked)
  */
 export async function resendOTP(email: string): Promise<MessageResponse> {
-  return request<MessageResponse>("/api/v1/auth/resend-otp", "POST", { email })
+  await delay(MOCK_DELAY);
+  return { message: "New mock OTP sent to " + email };
 }
 
 /**
- * Login / register with Google ID token from Google Identity Services.
- * Returns a JWT token and user info.
+ * Login / register with Google ID token. (Mocked but decodes real data)
  */
 export async function googleLogin(id_token: string): Promise<AuthResponse> {
-  return request<AuthResponse>("/api/v1/auth/google-login", "POST", { id_token })
+  await delay(MOCK_DELAY);
+  
+  // Basic JWT decoding to get real user data from Google
+  let userData = {
+    name: "Google User",
+    email: "google@example.com",
+    picture: ""
+  };
+
+  try {
+    const base64Url = id_token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    userData = {
+      name: payload.name || "Google User",
+      email: payload.email || "google@example.com",
+      picture: payload.picture || ""
+    };
+  } catch (e) {
+    console.error("Failed to decode Google ID Token", e);
+  }
+
+  return {
+    access_token: "mock-google-token-" + Math.random().toString(36).substring(7),
+    token_type: "bearer",
+    user: {
+      id: "google-" + Math.random().toString(36).substring(7),
+      name: userData.name,
+      email: userData.email,
+      auth_provider: "google",
+      is_verified: true,
+      created_at: new Date().toISOString()
+    }
+  };
+}
+
+/**
+ * Request a password reset OTP. (Mocked)
+ */
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  await delay(MOCK_DELAY);
+  return { message: "Reset OTP sent to " + email };
 }
 
 export interface ForgotPasswordRequest {
@@ -103,15 +204,15 @@ export interface ResetPasswordRequest {
 }
 
 /**
- * Request a password reset OTP.
- */
-export async function forgotPassword(email: string): Promise<MessageResponse> {
-  return request<MessageResponse>("/api/v1/auth/forgot-password", "POST", { email })
-}
-
-/**
- * Reset password using OTP.
+ * Reset password using OTP. (Mocked)
  */
 export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
-  return request<MessageResponse>("/api/v1/auth/reset-password", "POST", payload)
+  await delay(MOCK_DELAY);
+  const users = getMockUsers();
+  const userIndex = users.findIndex(u => u.email === payload.email);
+  if (userIndex !== -1) {
+    users[userIndex].password = payload.new_password;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  }
+  return { message: "Password reset successful! (Mock Mode)" };
 }

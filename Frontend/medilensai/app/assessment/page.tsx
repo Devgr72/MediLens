@@ -13,10 +13,20 @@ import {
   CheckCircle2, 
   Globe, 
   Plus, 
-  User 
+  User,
+  MapPin,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 import Navbar from "@/components/Navbar";
+import { detectLocation } from "@/utils/geolocation";
+import { 
+  generateAssessment, 
+  AssessmentPayload,
+  AssessmentResponse
+} from "@/components/api/assessment";
+import ResultsView from "@/components/ResultsView";
 
 type Language = "en" | "hi";
 
@@ -146,15 +156,144 @@ export default function AssessmentPage() {
     }));
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleSyncLocation = async () => {
+    setIsSyncing(true);
+    setSyncStatus(null);
+    try {
+      const coords = await detectLocation();
+      setSyncStatus({ 
+        type: 'success', 
+        message: `Location detected: ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}` 
+      });
+    } catch (err: any) {
+      setSyncStatus({ type: 'error', message: err.message || 'Failed to sync location.' });
+    } finally {
+      setIsSyncing(false);
+      // Clear status after 8 seconds for coordinates visibility
+      setTimeout(() => setSyncStatus(null), 8000);
+    }
+  };
+
   const handleLangToggle = () => {
     setLang(prev => prev === "en" ? "hi" : "en");
   };
 
-  return (
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [assessmentResult, setAssessmentResult] = useState<AssessmentResponse | null>(null);
+  const [isListening, setIsListening] = useState(false);
+
+  const handleVoiceInput = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in your browser.");
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === "en" ? "en-US" : "hi-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast.success(lang === "en" ? "Listening..." : "सुन रहा हूँ...");
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setFormData(prev => ({
+        ...prev,
+        notes: prev.notes + (prev.notes ? " " : "") + transcript
+      }));
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+      toast.error("Speech recognition failed. Please try again.");
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      // Map form data to backend payload structure (flattened)
+      const payload: AssessmentPayload = {
+        name: (selectedMember ? selectedMember.name : "manual entry patient").toLowerCase(),
+        age: parseInt(selectedMember ? selectedMember.age : formData.manualAge) || 0,
+        gender: (selectedMember ? selectedMember.gender : formData.manualGender).toLowerCase(),
+        symptoms: [...formData.selectedSymptoms, ...(formData.customSymptom ? [formData.customSymptom] : [])].map(s => s.toLowerCase()),
+        symptoms_name: [...formData.selectedSymptoms, ...(formData.customSymptom ? [formData.customSymptom] : [])].join(", ").toLowerCase(),
+        pain_intensity: formData.painIntensity,
+        symptom_duration: formData.duration.toLowerCase(),
+        additional_notes: formData.notes
+      };
+
+      console.log("Submitting payload:", payload);
+      
+      const response = await generateAssessment(payload);
+      setAssessmentResult(response);
+      setSuccess(true);
+      toast.success("Assessment complete!");
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      setError(err.message || "Failed to generate assessment. Please check your connection and try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const assessmentForm = (
     <main className="min-h-screen bg-[#f8fbff]">
       <Navbar />
 
       <div className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <button
+            onClick={handleSyncLocation}
+            disabled={isSyncing}
+            className={cn(
+              "group relative flex items-center gap-2 overflow-hidden rounded-xl border border-blue-200 bg-white px-5 py-2.5 text-sm font-bold text-[#074185] shadow-sm transition-all hover:border-blue-300 hover:shadow-md active:scale-95 disabled:opacity-50",
+              isSyncing && "cursor-wait"
+            )}
+          >
+            <div className={cn("h-4 w-4 rounded-full border-2 border-[#074185] border-t-transparent", isSyncing ? "animate-spin" : "hidden")} />
+            {!isSyncing && <MapPin size={18} className="transition-transform group-hover:scale-110" />}
+            {isSyncing ? "SYNCING CONTEXT..." : "SYNC LOCATION CONTEXT"}
+          </button>
+
+          {syncStatus && (
+            <div className={cn(
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-300",
+              syncStatus.type === 'success' ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-amber-50 text-amber-700 border border-amber-100"
+            )}>
+              {syncStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+              {syncStatus.message}
+            </div>
+          )}
+        </div>
+
         {/* Header and Language Switcher */}
         <div className="mb-10 flex items-start justify-between">
           <div className="flex items-start gap-4">
@@ -209,20 +348,7 @@ export default function AssessmentPage() {
 
               <div className="group relative flex aspect-square flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50 transition-all hover:border-blue-400 hover:bg-blue-50/30">
                 <div className="relative mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-md ring-1 ring-zinc-100">
-                  <Image 
-                    src="/assests/image-upload.png" 
-                    alt="Upload icon" 
-                    width={40} 
-                    height={40}
-                    className="opacity-20 group-hover:opacity-100 transition-opacity"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden');
-                    }}
-                  />
-                  <div className="fallback-icon hidden">
-                    <Upload size={30} className="text-zinc-300" />
-                  </div>
+                  <Upload size={30} className="text-zinc-300 group-hover:text-blue-500 transition-colors" />
                 </div>
                 <p className="text-center text-sm font-bold text-zinc-800 px-6">
                   {t.dragDrop}
@@ -465,9 +591,17 @@ export default function AssessmentPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-bold text-zinc-700">{t.additionalNotes}</label>
-                    <button className="flex items-center gap-2 rounded-full bg-zinc-50 px-4 py-1.5 text-[10px] font-black tracking-wider text-zinc-600 transition-all hover:bg-zinc-100 active:scale-95 shadow-sm border border-zinc-100">
-                      <Mic size={14} className="text-blue-500" />
-                      {t.voiceInput}
+                    <button 
+                      onClick={handleVoiceInput}
+                      className={cn(
+                        "flex items-center gap-2 rounded-full px-4 py-1.5 text-[10px] font-black tracking-wider transition-all active:scale-95 shadow-sm border",
+                        isListening 
+                          ? "bg-red-50 text-red-600 border-red-200 animate-pulse ring-4 ring-red-500/10" 
+                          : "bg-zinc-50 text-zinc-600 border-zinc-100 hover:bg-zinc-100"
+                      )}
+                    >
+                      <Mic size={14} className={cn(isListening ? "text-red-600" : "text-blue-500")} />
+                      {isListening ? (lang === "en" ? "STOP LISTENING" : "सुनना बंद करें") : t.voiceInput}
                     </button>
                   </div>
                   <div className="relative">
@@ -487,10 +621,40 @@ export default function AssessmentPage() {
             </section>
 
             {/* Submit Button */}
-            <div className="flex justify-end pt-4">
-              <button className="group relative flex items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-r from-[#074185] to-[#1e60ad] px-12 py-5 text-xl font-black text-white shadow-xl shadow-blue-900/20 transition-all hover:scale-[1.02] hover:shadow-2xl active:scale-95">
-                <span className="relative z-10">{t.generateAssessment}</span>
-                <div className="absolute inset-0 z-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <div className="flex flex-col items-end gap-4 pt-4">
+              {error && (
+                <div className="w-full rounded-2xl bg-red-50 p-4 border border-red-100 text-red-600 text-sm font-bold animate-in fade-in slide-in-from-top-2">
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div className="w-full rounded-2xl bg-green-50 p-4 border border-green-100 text-green-600 text-sm font-bold animate-in fade-in slide-in-from-top-2">
+                  ✓ Assessment generated successfully!
+                </div>
+              )}
+              <button 
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className={cn(
+                  "group relative flex items-center justify-center overflow-hidden rounded-2xl px-12 py-5 text-xl font-black text-white shadow-xl transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed",
+                  isLoading 
+                    ? "bg-zinc-400 cursor-wait" 
+                    : "bg-gradient-to-r from-[#074185] to-[#1e60ad] hover:scale-[1.02] hover:shadow-2xl shadow-blue-900/20"
+                )}
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  {isLoading ? (
+                    <>
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      GENERATING...
+                    </>
+                  ) : (
+                    t.generateAssessment
+                  )}
+                </span>
+                {!isLoading && (
+                  <div className="absolute inset-0 z-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                )}
               </button>
             </div>
           </div>
@@ -498,4 +662,10 @@ export default function AssessmentPage() {
       </div>
     </main>
   );
+
+  if (assessmentResult) {
+    return <ResultsView data={assessmentResult} onReset={() => setAssessmentResult(null)} />;
+  }
+
+  return assessmentForm;
 }

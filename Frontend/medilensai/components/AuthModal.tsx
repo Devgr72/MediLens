@@ -3,17 +3,19 @@
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
-import { X, Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, KeyRound } from "lucide-react"
+import { X, Mail, Lock, User, Eye, EyeOff, Loader2, CheckCircle2, ShieldCheck, KeyRound, Stethoscope } from "lucide-react"
 import Script from "next/script"
-import { 
-  login, 
-  signup, 
-  verifyOTP, 
-  resendOTP, 
-  googleLogin, 
-  forgotPassword, 
-  resetPassword, 
-  AuthResponse 
+import toast from "react-hot-toast"
+import { useRouter } from "next/navigation"
+import {
+  login,
+  signup,
+  verifyOTP,
+  resendOTP,
+  googleLogin,
+  forgotPassword,
+  resetPassword,
+  AuthResponse
 } from "./api/auth"
 
 interface AuthModalProps {
@@ -29,15 +31,20 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
   const [screen, setScreen] = useState<Screen>("login")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const error = ""
+  const setError = (msg: string) => { if (msg) toast.error(msg, { duration: 3000 }) }
+  const success = ""
+  const setSuccess = (msg: string) => { if (msg) toast.success(msg, { duration: 3000 }) }
 
   // Form state
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
+
+  const router = useRouter()
 
   // Pending email for OTP or reset
   const [pendingEmail, setPendingEmail] = useState("")
@@ -61,6 +68,7 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
   useEffect(() => {
     const initializeGoogle = () => {
       const google = (window as any).google;
+      // Google login is only for patients
       if (google?.accounts?.id && isOpen && (screen === "login" || screen === "signup")) {
         google.accounts.id.initialize({
           client_id: "491944073674-oinr48ljj99uercq4o0iek5svt5ofcft.apps.googleusercontent.com",
@@ -127,6 +135,7 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
     setScreen(s)
   }
 
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -135,7 +144,8 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
       const res = await login(email, password)
       setSuccess("Logged in successfully!")
       setTimeout(() => {
-        onLoginSuccess?.(res.access_token, res.user)
+        const anyRes = res as any
+        onLoginSuccess?.(anyRes.access_token, anyRes.user || anyRes.doctor)
         onClose()
       }, 800)
     } catch (err: unknown) {
@@ -188,6 +198,7 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (newPassword !== confirmPassword) { setError("Passwords do not match."); return }
     const otpCode = otp.join("")
     if (otpCode.length < 6) { setError("Please enter the complete 6-digit OTP."); return }
     setError("")
@@ -300,63 +311,81 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
 
                   <div className="px-8 pb-8 pt-8">
                     <AnimatePresence mode="wait">
-                      
+
                       {/* ── LOGIN SCREEN ── */}
                       {screen === "login" && (
                         <motion.div key="login" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}>
                           <div className="mb-6 text-center">
                             <h2 className="text-3xl font-extrabold tracking-tight text-[#074185]">Welcome Back</h2>
-                            <p className="mt-1 text-sm font-medium text-zinc-500">Enter your credentials to continue</p>
                           </div>
                           <form className="space-y-4" onSubmit={handleLogin}>
-                            <div className="group relative">
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="group relative">
                               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#074185] transition-colors" size={18} />
-                              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email Address" autoComplete="email" required className="w-full rounded-xl bg-zinc-50 border border-zinc-200 px-10 py-3.5 text-sm font-bold text-[#074185] outline-none transition-all placeholder:text-zinc-400 hover:border-zinc-300 focus:bg-white focus:border-[#074185] focus:ring-4 focus:ring-[#074185]/10" />
-                            </div>
-                            <div className="group relative">
+                              <input 
+                                type="email" 
+                                value={email} 
+                                onChange={e => setEmail(e.target.value)} 
+                                placeholder="Email Address" 
+                                autoComplete="email" 
+                                required 
+                                className={`w-full rounded-xl bg-zinc-50 border transition-all px-10 py-3.5 text-sm font-bold text-[#074185] outline-none placeholder:text-zinc-400 focus:bg-white ${email.includes("@") ? "border-[#074185]/30 shadow-[0_0_15px_-5px_rgba(7,65,133,0.1)]" : "border-zinc-200 hover:border-zinc-300"}`} 
+                              />
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="group relative">
                               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#074185] transition-colors" size={18} />
-                              <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete="current-password" required className="w-full rounded-xl bg-zinc-50 border border-zinc-200 px-10 py-3.5 text-sm font-bold text-[#074185] outline-none transition-all placeholder:text-zinc-400 hover:border-zinc-300 focus:bg-white focus:border-[#074185] focus:ring-4 focus:ring-[#074185]/10" />
+                              <input 
+                                type={showPassword ? "text" : "password"} 
+                                value={password} 
+                                onChange={e => setPassword(e.target.value)} 
+                                placeholder="Password" 
+                                autoComplete="current-password" 
+                                required 
+                                className={`w-full rounded-xl bg-zinc-50 border transition-all px-10 py-3.5 text-sm font-bold text-[#074185] outline-none placeholder:text-zinc-400 focus:bg-white ${password.length >= 6 ? "border-[#074185]/30 shadow-[0_0_15px_-5px_rgba(7,65,133,0.1)]" : "border-zinc-200 hover:border-zinc-300"}`} 
+                              />
                               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-[#074185] transition-colors">
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                               </button>
-                            </div>
-                            <div className="flex justify-end">
+                            </motion.div>
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex justify-end">
                               <button type="button" onClick={() => switchScreen("forgot_password")} className="text-xs font-bold text-zinc-400 hover:text-[#074185] hover:underline transition-colors">Forgot Password?</button>
-                            </div>
-                            {error && <p className="rounded-lg bg-red-50 border border-red-100 px-4 py-2.5 text-xs font-semibold text-red-600">{error}</p>}
-                            {success && (
-                              <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-4 py-2.5 text-xs font-semibold text-green-600">
-                                <CheckCircle2 size={14} /> {success}
-                              </div>
+                            </motion.div>
+                            {error && (
+                              <motion.p initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="rounded-lg bg-red-50 border border-red-100 px-4 py-2.5 text-xs font-semibold text-red-600">
+                                {error}
+                              </motion.p>
                             )}
-                            <button type="submit" disabled={loading} className="group relative mt-2 w-full overflow-hidden rounded-xl bg-[#074185] py-3.5 font-bold text-white shadow-lg shadow-[#074185]/20 transition-all hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70 active:scale-[0.99]">
+                            {success && (
+                              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-100 px-4 py-2.5 text-xs font-semibold text-green-600">
+                                <CheckCircle2 size={14} /> {success}
+                              </motion.div>
+                            )}
+                            <motion.button 
+                              initial={{ opacity: 0, y: 10 }} 
+                              animate={{ opacity: 1, y: 0 }} 
+                              transition={{ delay: 0.4 }}
+                              type="submit" 
+                              disabled={loading} 
+                              className="group relative mt-2 w-full overflow-hidden rounded-xl bg-[#074185] py-3.5 font-bold text-white shadow-lg shadow-[#074185]/20 transition-all hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70 active:scale-[0.99]"
+                            >
                               <span className="relative z-10 flex items-center justify-center gap-2">
                                 {loading ? <Loader2 size={18} className="animate-spin" /> : null}
                                 {loading ? "Logging in…" : "Login"}
                               </span>
                               <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                            </button>
+                            </motion.button>
                           </form>
-                          
-                          {/* Google One Tap Logic or Button */}
-                          <div className="my-6 flex items-center gap-3">
-                            <div className="h-px flex-1 bg-zinc-200" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#074185]">or continue with</span>
-                            <div className="h-px flex-1 bg-zinc-200" />
-                          </div>
 
-                          <div className="relative flex justify-center w-full">
-                            <div 
-                              className="g_id_signin"
-                              data-type="standard"
-                              data-shape="pill"
-                              data-theme="outline"
-                              data-text="continue_with"
-                              data-size="large"
-                              data-logo_alignment="left"
-                              data-width="400"
-                            ></div>
-                          </div>
+                          <>
+                            <div className="my-6 flex items-center gap-3">
+                              <div className="h-px flex-1 bg-zinc-200" />
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-[#074185]">or continue with</span>
+                              <div className="h-px flex-1 bg-zinc-200" />
+                            </div>
+
+                            <div className="relative flex justify-center w-full">
+                              <div id="google-signin-button" className="flex justify-center w-full"></div>
+                            </div>
+                          </>
 
                           <p className="mt-6 text-center text-sm font-semibold text-zinc-500">
                             Don&apos;t have an account?{" "}
@@ -411,24 +440,30 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
                           </div>
 
                           <div className="relative flex justify-center w-full">
-                            <div 
-                              className="g_id_signin"
-                              data-type="standard"
-                              data-shape="pill"
-                              data-theme="outline"
-                              data-text="continue_with"
-                              data-size="large"
-                              data-logo_alignment="left"
-                              data-width="400"
-                            ></div>
+                            <div id="google-signin-button-signup" className="flex justify-center w-full"></div>
                           </div>
 
                           <p className="mt-6 text-center text-sm font-semibold text-zinc-500">
                             Already have an account?{" "}
                             <button onClick={() => switchScreen("login")} className="font-bold text-[#074185] hover:underline transition-colors">Log in</button>
                           </p>
+
+                          <div className="mt-4 pt-4 border-t border-zinc-100">
+                            <button 
+                              onClick={() => {
+                                onClose();
+                                router.push("/doctor/login");
+                              }}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#074185]/5 p-3 text-sm font-bold text-[#074185] transition-all hover:bg-[#074185]/10"
+                            >
+                              <Stethoscope size={18} />
+                              Login as a Medical Professional
+                            </button>
+                          </div>
                         </motion.div>
                       )}
+
+
 
                       {/* ── OTP SCREEN ── */}
                       {screen === "otp" && (
@@ -518,7 +553,7 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
                       {screen === "reset_password" && (
                         <motion.div key="reset" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }}>
                           <div className="mb-6 text-center">
-                             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
                               <ShieldCheck size={24} className="text-green-600" />
                             </div>
                             <h2 className="text-2xl font-extrabold tracking-tight text-[#074185]">Set New Password</h2>
@@ -537,6 +572,10 @@ export function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
                             <div className="group relative">
                               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#074185]" size={18} />
                               <input type={showPassword ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" required className="w-full rounded-xl bg-zinc-50 border border-zinc-200 px-10 py-3.5 text-sm font-bold text-[#074185] outline-none focus:border-[#074185]" />
+                            </div>
+                            <div className="group relative">
+                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#074185]" size={18} />
+                              <input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm Password" required className="w-full rounded-xl bg-zinc-50 border border-zinc-200 px-10 py-3.5 text-sm font-bold text-[#074185] outline-none focus:border-[#074185]" />
                             </div>
                             {error && <p className="rounded-lg bg-red-50 px-4 py-2.5 text-xs font-semibold text-red-600">{error}</p>}
                             <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#074185] py-3.5 font-bold text-white">

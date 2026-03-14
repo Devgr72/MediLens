@@ -3,9 +3,28 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ShieldCheck, ChevronRight } from "lucide-react";
+import { ShieldCheck, ChevronRight, PlayCircle, ArrowRight } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function Hero() {
+  const { isLoggedIn, setIsAuthModalOpen } = useAuth();
+  const router = useRouter();
+
+  const handleStartAssessment = () => {
+    if (isLoggedIn) {
+      router.push("/assessment");
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  const scrollToHowItWorks = () => {
+    const element = document.getElementById("how-it-works");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
   return (
     <section className="relative overflow-hidden bg-white px-6 pt-12 pb-6 lg:pt-10 lg:pb-8">
       <div className="mx-auto max-w-7xl">
@@ -32,13 +51,20 @@ export default function Hero() {
               Identify health risks early before minor symptoms turn into serious conditions.
             </p>
             
-            <div className="flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-              <Link href="/assessment">
-                <button className="w-full inline-flex items-center justify-center rounded-2xl bg-[#074185] px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-[rgba(7,65,133,0.3)] transition-all hover:bg-[#074185]/90 hover:shadow-[rgba(7,65,133,0.4)]">
-                  Start Assessment
-                </button>
-              </Link>
-              <button className="inline-flex items-center justify-center rounded-2xl border-2 border-[#074185] bg-white px-8 py-4 text-lg font-semibold text-[#074185] transition-all hover:bg-[#074185]/5">
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
+              <button 
+                onClick={handleStartAssessment}
+                className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#074185] px-8 py-4 text-lg font-bold text-white shadow-xl shadow-[#074185]/20 transition-all hover:bg-[#074185]/90 hover:shadow-[#074185]/30 active:scale-[0.98] sm:w-auto"
+              >
+                <span>Start Assessment</span>
+                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </button>
+              
+              <button 
+                onClick={scrollToHowItWorks}
+                className="group inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-[#074185]/10 bg-white px-8 py-4 text-lg font-bold text-[#074185] transition-all hover:border-[#074185]/20 hover:bg-zinc-50 active:scale-[0.98] sm:w-auto whitespace-nowrap"
+              >
+                <PlayCircle className="h-5 w-5 text-[#55bbc5]" />
                 How it works
               </button>
             </div>

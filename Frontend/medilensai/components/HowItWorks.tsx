@@ -30,7 +30,7 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="bg-white py-24 px-6 overflow-hidden">
+    <section id="how-it-works" className="bg-white py-24 px-6 overflow-hidden">
       <div className="mx-auto max-w-7xl">
         <div className="text-center mb-16">
           <motion.div
@@ -98,18 +98,6 @@ export default function HowItWorks() {
           </div>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.6 }}
-          className="mt-20 text-center"
-        >
-          <div className="inline-flex items-center gap-2 text-sm font-bold text-[#074185] group cursor-pointer">
-            Explore more features
-            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-          </div>
-        </motion.div>
       </div>
     </section>
   );
