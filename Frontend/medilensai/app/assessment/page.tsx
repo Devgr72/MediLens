@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { detectLocation } from "@/utils/geolocation";
 import { 
   generateAssessment, 
@@ -664,7 +665,15 @@ export default function AssessmentPage() {
   );
 
   if (assessmentResult) {
-    return <ResultsView data={assessmentResult} onReset={() => setAssessmentResult(null)} />;
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <main className="flex-1">
+          <ResultsView data={assessmentResult} onReset={() => setAssessmentResult(null)} />
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return assessmentForm;

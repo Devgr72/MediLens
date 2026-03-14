@@ -50,11 +50,11 @@ export default function ResultsView({ data, onReset }: ResultsViewProps) {
   return (
     <div className="min-h-screen bg-zinc-50 pb-20">
       {/* Risk Banner */}
-      <div className={cn("relative overflow-hidden pt-12 pb-24 text-white", riskBg)}>
+      <div className={cn("relative overflow-hidden pt-12 pb-32 text-white", riskBg)}>
         <div className="absolute inset-0 bg-black/10 opacity-50" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-from),_transparent_50%)] from-white/20" />
         
-        <div className="relative mx-auto max-w-7xl px-6">
+        <div className="relative z-10 mx-auto max-w-7xl px-6">
           <div className="flex items-center gap-6">
             <button onClick={onReset} className="rounded-xl bg-white/20 p-2 text-white hover:bg-white/30 transition-all">
               <Home size={20} />
@@ -88,7 +88,7 @@ export default function ResultsView({ data, onReset }: ResultsViewProps) {
         </div>
       </div>
 
-      <div className="mx-auto -mt-16 max-w-7xl px-6">
+      <div className="relative z-20 mx-auto -mt-16 max-w-7xl px-6">
         <div className="grid gap-8 lg:grid-cols-3">
           
           {/* Main Content */}
@@ -258,20 +258,7 @@ export default function ResultsView({ data, onReset }: ResultsViewProps) {
               </motion.div>
             )}
 
-            {/* AI Confidence */}
-            {data.ai_confidence && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                className="rounded-[28px] bg-zinc-50 p-6 ring-1 ring-zinc-200"
-              >
-                <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-500">
-                  <Activity size={14} /> AI Confidence
-                </div>
-                <p className="text-sm font-bold text-zinc-700">{data.ai_confidence}</p>
-              </motion.div>
-            )}
+
 
             {/* Emergency */}
             <motion.div 
@@ -288,26 +275,7 @@ export default function ResultsView({ data, onReset }: ResultsViewProps) {
               </p>
             </motion.div>
 
-            {/* Sources */}
-            {data.sources && data.sources.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="rounded-[28px] bg-zinc-50 p-6 ring-1 ring-zinc-200"
-              >
-                <h4 className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                  <Info size={14} /> Knowledge Sources
-                </h4>
-                <ul className="space-y-2">
-                  {data.sources.map((source, idx) => (
-                    <li key={idx} className="text-xs font-semibold text-zinc-600 bg-white p-2.5 rounded-lg border border-zinc-100 shadow-sm truncate" title={source}>
-                      {source}
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
+
 
             {/* Note */}
             {data.note && (

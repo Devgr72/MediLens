@@ -23,17 +23,17 @@ export default function DoctorRegistration({ onSuccess, onBack }: DoctorRegistra
   const [loading, setLoading] = useState(false)
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
 
-  // Combined Form State
+  // Combined Form State with predefined data
   const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", password: "", gender: "male", dob: "",
-    city: "", state: "", pincode: "", full_address: "",
-    license_number: "", medical_council: "", registration_year: "",
-    degree: "", higher_degree: "", university: "", graduation_year: "",
-    specialization: "", sub_specialization: "", experience_years: "",
-    workplace_type: "hospital", hospital_name: "", department: "",
-    work_city: "", work_state: "", work_pincode: "", work_full_address: "",
-    consultation_fee: "", consultation_type: "both",
-    available_days: [] as string[], available_time: ""
+    name: "Dr. Rahul Sharma", email: "rahul.sharma@gmail.com", phone: "9876543210", password: "Rahul@123", gender: "Male", dob: "1990-05-12", profile_photo: "https://example.com/profile.jpg",
+    city: "Jodhpur", state: "Rajasthan", pincode: "342001", full_address: "123 Medical Street, Jodhpur",
+    license_number: "RJMC123456", medical_council: "Rajasthan Medical Council", registration_year: "2015",
+    degree: "MBBS", higher_degree: "MD Medicine", university: "AIIMS Delhi", graduation_year: "2014",
+    specialization: "General Physician", sub_specialization: "Internal Medicine", experience_years: "8",
+    workplace_type: "Hospital", hospital_name: "City Care Hospital", department: "General Medicine",
+    work_city: "Jodhpur", work_state: "Rajasthan", work_pincode: "342003", work_full_address: "Sector 5, Jodhpur",
+    consultation_fee: "500", consultation_type: "Online & Offline",
+    available_days: ["Monday", "Tuesday", "Wednesday", "Friday"], available_time: "10:00 AM - 4:00 PM"
   })
 
   const updateField = (field: string, value: string | string[]) => {
@@ -79,6 +79,7 @@ export default function DoctorRegistration({ onSuccess, onBack }: DoctorRegistra
         password: formData.password,
         gender: formData.gender,
         dob: formData.dob,
+        profile_photo: formData.profile_photo || "https://example.com/profile.jpg",
         address: {
           city: formData.city,
           state: formData.state,
@@ -92,12 +93,12 @@ export default function DoctorRegistration({ onSuccess, onBack }: DoctorRegistra
         registration_year: formData.registration_year,
         qualification: {
           degree: formData.degree,
-          higher_degree: formData.higher_degree,
+          higher_degree: formData.higher_degree || "None",
           university: formData.university,
           graduation_year: formData.graduation_year
         },
         specialization: formData.specialization,
-        sub_specialization: formData.sub_specialization,
+        sub_specialization: formData.sub_specialization || "General",
         experience_years: formData.experience_years
       },
       workplace_details: {
@@ -117,7 +118,12 @@ export default function DoctorRegistration({ onSuccess, onBack }: DoctorRegistra
         available_days: formData.available_days,
         available_time: formData.available_time
       },
-      documents: {} // Future file upload support
+      documents: {
+        license_certificate: "https://example.com/license.pdf",
+        degree_certificate: "https://example.com/degree.pdf",
+        government_id: "https://example.com/id.pdf"
+      },
+      account_status: "pending"
     }
 
     try {

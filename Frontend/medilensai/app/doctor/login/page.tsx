@@ -6,6 +6,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { loginDoctor } from "@/components/api/doctor";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 
 export default function DoctorLoginPage() {
@@ -17,19 +18,22 @@ export default function DoctorLoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const { login } = useAuth();
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       const res = await loginDoctor(email, password);
-      // Explicit backend call will be done later
+      // Backend explicit token and user payload
+      login(res.access_token, res.user);
       setSuccess("Logged in successfully!");
       setTimeout(() => {
         router.push("/doctor/dashboard"); // Modify this to intended target
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+    } catch (err: unknown) {
+      setError((err as Error).message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }

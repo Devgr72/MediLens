@@ -8,7 +8,7 @@ export interface DoctorSignupPayload {
     password: string;
     gender: string;
     dob: string;
-    profile_photo?: string;
+    profile_photo: string;
     address: {
       city: string;
       state: string;
@@ -22,12 +22,12 @@ export interface DoctorSignupPayload {
     registration_year: string;
     qualification: {
       degree: string;
-      higher_degree?: string;
+      higher_degree: string;
       university: string;
       graduation_year: string;
     };
     specialization: string;
-    sub_specialization?: string;
+    sub_specialization: string;
     experience_years: string;
   };
   workplace_details: {
@@ -48,18 +48,25 @@ export interface DoctorSignupPayload {
     available_time: string;
   };
   documents: {
-    license_certificate?: string;
-    degree_certificate?: string;
-    government_id?: string;
+    license_certificate: string;
+    degree_certificate: string;
+    government_id: string;
   };
+  account_status: string;
 }
 
 export interface DoctorAuthResponse {
   access_token: string;
   token_type: string;
-  doctor: {
-    name: string;
+  user: {
+    id: string;
     email: string;
+    name: string;
+    auth_provider: string;
+    role: string;
+    is_verified: boolean;
+    created_at: string;
+    [key: string]: unknown;
   };
 }
 
@@ -75,7 +82,21 @@ export async function signupDoctor(payload: DoctorSignupPayload) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.message || "Failed to register doctor");
+    let errorMessage = "Failed to register doctor";
+    
+    if (errorData.detail) {
+      if (typeof errorData.detail === 'string') {
+        errorMessage = errorData.detail;
+      } else if (Array.isArray(errorData.detail)) {
+        errorMessage = errorData.detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+      } else {
+        errorMessage = JSON.stringify(errorData.detail);
+      }
+    } else if (errorData.message) {
+      errorMessage = errorData.message;
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -99,19 +120,32 @@ export async function verifyDoctorOtp(email: string, otp: string) {
   return response.json();
 }
 
-export async function loginDoctor(email: string, password: string) {
-  // We'll update this once login curl is provided. For now it's still mocked/demo structure.
-  // Actually, wait, let's just make it do what it did before, or prepare it for the real endpoint.
+export async function resendDoctorOtp(email: string) {
+  const response = await fetch(`${API_URL}/api/v1/doctor-auth/resend-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "accept": "application/json"
+    },
+    body: JSON.stringify({ email })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || "Failed to resend OTP");
+  }
+
+  return response.json();
+}
+
+export async function loginDoctor(email: string, password: string): Promise<DoctorAuthResponse> {
   const response = await fetch(`${API_URL}/api/v1/doctor-auth/login`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+      "Content-Type": "application/json",
       "accept": "application/json"
     },
-    body: new URLSearchParams({
-      username: email,
-      password: password,
-    })
+    body: JSON.stringify({ email, password })
   });
 
   if (!response.ok) {

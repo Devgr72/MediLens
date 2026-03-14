@@ -76,7 +76,7 @@ export async function generateAssessment(payload: AssessmentPayload): Promise<As
         errorMessage = errorData.detail;
       } else if (Array.isArray(errorData.detail)) {
         // Extract messages from FastAPI validation errors
-        errorMessage = errorData.detail.map((err: any) => `${err.loc.join('.')}: ${err.msg}`).join(", ");
+        errorMessage = errorData.detail.map((e: { loc: string[]; msg: string }) => `${e.loc.join('.')}: ${e.msg}`).join(", ");
       } else if (errorData.detail) {
         errorMessage = JSON.stringify(errorData.detail);
       }
