@@ -18,6 +18,8 @@ from app.routes.health import router as health_router
 from app.routes.user_routes import router as user_router
 from app.routes.symptom_routes import router as symptom_router
 from app.routes.doctor_auth_routes import router as doctor_auth_router
+from app.routes.matching_routes import router as matching_router
+from app.routes.appointment_routes import router as appointment_router
 from app.services.symptom_service import set_http_client
 
 # ──────────────────────────────────────────────
@@ -44,6 +46,8 @@ app.include_router(user_router)
 app.include_router(auth_router)
 app.include_router(symptom_router)
 app.include_router(doctor_auth_router)
+app.include_router(matching_router)
+app.include_router(appointment_router)
 
 
 # ── Startup / Shutdown Events ────────────────

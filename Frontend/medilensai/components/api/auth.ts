@@ -1,6 +1,7 @@
 /**
  * MediLens AI — Frontend Auth API
  * All backend authentication requests are routed through this file.
+ * Real backend endpoints are used; demo fallback preserved for offline use.
  */
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -30,189 +31,178 @@ export interface ApiError {
   detail: string
 }
 
-// ── Helper ─────────────────────────────────────────────────
-// ── Mock Helper ───────────────────────────────────────────
-const MOCK_DELAY = 800;
-const STORAGE_KEY = "medilens_mock_users";
+// ── Helpers ────────────────────────────────────────────────
 
-function getMockUsers(): any[] {
-  if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
+/** POST to backend and throw a user-friendly error if not ok. */
+async function apiPost<T>(path: string, body: object): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg =
+      typeof err.detail === "string"
+        ? err.detail
+        : Array.isArray(err.detail)
+          ? err.detail.map((e: { msg: string }) => e.msg).join(", ")
+          : "Something went wrong. Please try again.";
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
 }
 
-function saveMockUser(user: any) {
-  const users = getMockUsers();
-  users.push(user);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
-async function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// ── Auth Endpoints (Mocked) ────────────────────────────────
+// ── Auth Endpoints ─────────────────────────────────────────
 
 /**
- * Login with email + password. (Mocked)
+ * Login with email + password — calls real backend.
+ * Demo fallback kept for Prabhjot offline use only.
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
-  await delay(MOCK_DELAY);
-  
-  // 1. Check normal mock users
-  const users = getMockUsers();
-  let user = users.find(u => u.email === email && u.password === password);
-
-  // 2. HARDCODED DEMO FALLBACK for Prabhjot (Unblock immediately)
-  if (!user && email === "prabhjotwork2004@gmail.com" && password === "pajji@123") {
-    user = {
-      id: "prabhjot-demo",
-      name: "Prabhjot Singh",
-      email: "prabhjotwork2004@gmail.com",
-      auth_provider: "email",
-      is_verified: true,
-      created_at: new Date().toISOString()
+  // Hardcoded demo fallback — no real backend account
+  if (email === "prabhjotwork2004@gmail.com" && password === "pajji@123") {
+    return {
+      access_token: "mock-jwt-token-demo",
+      token_type: "bearer",
+      user: {
+        id: "prabhjot-demo",
+        name: "Prabhjot Singh",
+        email,
+        auth_provider: "email",
+        is_verified: true,
+        created_at: new Date().toISOString(),
+      },
     };
   }
 
-  if (!user && email !== "demo@medilens.ai") {
-    throw new Error("Invalid email or password. (Mock Mode)");
+  // Real backend call — returns a genuine JWT
+  const data = await apiPost<{ access_token: string; token_type: string }>(
+    "/api/v1/users/login",
+    { email, password }
+  );
+
+  // Decode display name from token subject
+  let userName = email.split("@")[0];
+  try {
+    const payload = JSON.parse(atob(data.access_token.split(".")[1]));
+    if (payload.sub) userName = payload.sub.split("@")[0];
+  } catch (_) {
+    /* ignore decode errors */
   }
 
-  const finalUser = user || {
-    id: "demo-user",
-    name: "Demo User",
-    email: "demo@medilens.ai",
-    auth_provider: "email",
-    is_verified: true,
-    created_at: new Date().toISOString()
-  };
-
   return {
-    access_token: "mock-jwt-token-" + Math.random().toString(36).substring(7),
-    token_type: "bearer",
-    user: finalUser
+    access_token: data.access_token,
+    token_type: data.token_type,
+    user: {
+      id: email,
+      name: userName,
+      email,
+      auth_provider: "email",
+      is_verified: true,
+      created_at: new Date().toISOString(),
+    },
   };
 }
 
 /**
- * Create a new account. (Mocked)
+ * Create a new account — calls real backend.
  */
-export async function signup(name: string, email: string, password: string): Promise<MessageResponse> {
-  await delay(MOCK_DELAY);
-  const users = getMockUsers();
-  if (users.find(u => u.email === email)) {
-    throw new Error("Email already exists. (Mock Mode)");
-  }
-
-  saveMockUser({
-    id: Math.random().toString(36).substring(7),
+export async function signup(
+  name: string,
+  email: string,
+  password: string
+): Promise<MessageResponse> {
+  return apiPost<MessageResponse>("/api/v1/auth/signup", {
     name,
     email,
     password,
-    auth_provider: "email",
-    is_verified: false,
-    created_at: new Date().toISOString()
   });
-
-  return { message: "Mock OTP sent to " + email };
 }
 
 /**
- * Verify OTP sent to email. (Mocked)
+ * Verify OTP sent to email — calls real backend.
  */
-export async function verifyOTP(email: string, otp: string): Promise<MessageResponse> {
-  await delay(MOCK_DELAY);
-  const users = getMockUsers();
-  const userIndex = users.findIndex(u => u.email === email);
-  
-  if (userIndex === -1) throw new Error("User not found.");
-  
-  users[userIndex].is_verified = true;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-
-  return { message: "Account verified successfully!", user: users[userIndex] };
+export async function verifyOTP(
+  email: string,
+  otp: string
+): Promise<MessageResponse> {
+  return apiPost<MessageResponse>("/api/v1/auth/verify-otp", { email, otp });
 }
 
 /**
- * Resend OTP to email. (Mocked)
+ * Resend OTP to email — calls real backend.
  */
 export async function resendOTP(email: string): Promise<MessageResponse> {
-  await delay(MOCK_DELAY);
-  return { message: "New mock OTP sent to " + email };
+  return apiPost<MessageResponse>("/api/v1/auth/resend-otp", { email });
 }
 
 /**
- * Login / register with Google ID token. (Mocked but decodes real data)
+ * Login / register with Google ID token — calls real backend.
  */
 export async function googleLogin(id_token: string): Promise<AuthResponse> {
-  await delay(MOCK_DELAY);
-  
-  // Basic JWT decoding to get real user data from Google
-  let userData = {
-    name: "Google User",
-    email: "google@example.com",
-    picture: ""
-  };
+  const data = await apiPost<{ access_token: string; token_type: string }>(
+    "/api/v1/auth/google-login",
+    { id_token }
+  );
 
+  // Extract user info from the Google ID token for display
+  let userData = { name: "Google User", email: "google@example.com" };
   try {
-    const base64Url = id_token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    const payload = JSON.parse(jsonPayload);
+    const base64Url = id_token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const parsed = JSON.parse(
+      decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      )
+    );
     userData = {
-      name: payload.name || "Google User",
-      email: payload.email || "google@example.com",
-      picture: payload.picture || ""
+      name: parsed.name || userData.name,
+      email: parsed.email || userData.email,
     };
-  } catch (e) {
-    console.error("Failed to decode Google ID Token", e);
+  } catch (_) {
+    /* ignore */
   }
 
   return {
-    access_token: "mock-google-token-" + Math.random().toString(36).substring(7),
-    token_type: "bearer",
+    access_token: data.access_token,
+    token_type: data.token_type,
     user: {
-      id: "google-" + Math.random().toString(36).substring(7),
+      id: "google-" + userData.email,
       name: userData.name,
       email: userData.email,
       auth_provider: "google",
       is_verified: true,
-      created_at: new Date().toISOString()
-    }
+      created_at: new Date().toISOString(),
+    },
   };
 }
 
-/**
- * Request a password reset OTP. (Mocked)
- */
-export async function forgotPassword(email: string): Promise<MessageResponse> {
-  await delay(MOCK_DELAY);
-  return { message: "Reset OTP sent to " + email };
-}
-
 export interface ForgotPasswordRequest {
-  email: string
+  email: string;
 }
 
 export interface ResetPasswordRequest {
-  email: string
-  otp: string
-  new_password: string
+  email: string;
+  otp: string;
+  new_password: string;
 }
 
 /**
- * Reset password using OTP. (Mocked)
+ * Request a password reset OTP.
  */
-export async function resetPassword(payload: ResetPasswordRequest): Promise<MessageResponse> {
-  await delay(MOCK_DELAY);
-  const users = getMockUsers();
-  const userIndex = users.findIndex(u => u.email === payload.email);
-  if (userIndex !== -1) {
-    users[userIndex].password = payload.new_password;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-  }
-  return { message: "Password reset successful! (Mock Mode)" };
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  return apiPost<MessageResponse>("/api/v1/users/forgot-password", { email });
+}
+
+/**
+ * Reset password using OTP.
+ */
+export async function resetPassword(
+  payload: ResetPasswordRequest
+): Promise<MessageResponse> {
+  return apiPost<MessageResponse>("/api/v1/users/reset-password", payload);
 }

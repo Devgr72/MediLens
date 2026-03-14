@@ -106,7 +106,6 @@ async def create_user(name: str, email: str, password: str) -> dict:
         if existing.get("is_verified"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-<<<<<<< HEAD
                 detail="A user with this email already exists.",
             )
         # If unverified, we update the existing record
@@ -120,21 +119,6 @@ async def create_user(name: str, email: str, password: str) -> dict:
         )
         doc = await db[USERS].find_one({"_id": existing["_id"]})
         logger.info("Unverified user updated — %s (%s)", name, email)
-=======
-                detail="A user with this email already exists and is verified.",
-            )
-        
-        doc = user_document(
-            name=name,
-            email=email,
-            password_hash=hash_password(password),
-            auth_provider="email",
-            is_verified=False,
-        )
-        doc["_id"] = existing["_id"]
-        await db[USERS].replace_one({"_id": existing["_id"]}, doc)
-        logger.info("Unverified user overwritten — %s (%s)", name, email)
->>>>>>> db347eb5106743fd3e8352fa1a755765c6b2e80f
     else:
         doc = user_document(
             name=name,

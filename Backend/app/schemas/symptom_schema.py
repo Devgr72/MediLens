@@ -79,6 +79,7 @@ class AIHistoryPayload(BaseModel):
     first_aid: List[str]
     watch_for: List[str]
     specialist: str
+    recommended_specialists: List[str]
     ai_confidence: str
     sources: List[str]
     note: Optional[str] = None

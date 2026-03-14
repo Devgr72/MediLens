@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { 
-  ArrowLeft, 
-  Camera, 
-  Upload, 
-  Mic, 
-  ChevronDown, 
-  Search, 
-  CheckCircle2, 
-  Globe, 
-  Plus, 
+import {
+  ArrowLeft,
+  Camera,
+  Upload,
+  Mic,
+  ChevronDown,
+  Search,
+  CheckCircle2,
+  Globe,
+  Plus,
   User,
   MapPin,
   AlertTriangle
@@ -22,8 +22,8 @@ import toast from "react-hot-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { detectLocation } from "@/utils/geolocation";
-import { 
-  generateAssessment, 
+import {
+  generateAssessment,
   AssessmentPayload,
   AssessmentResponse
 } from "@/components/api/assessment";
@@ -142,7 +142,7 @@ export default function AssessmentPage() {
     setIsMemberDropdownOpen(false);
   };
 
-  const filteredMembers = mockMembers.filter(m => 
+  const filteredMembers = mockMembers.filter(m =>
     m.name.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
@@ -165,9 +165,9 @@ export default function AssessmentPage() {
     setSyncStatus(null);
     try {
       const coords = await detectLocation();
-      setSyncStatus({ 
-        type: 'success', 
-        message: `Location detected: ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}` 
+      setSyncStatus({
+        type: 'success',
+        message: `Location detected: ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`
       });
     } catch (err: any) {
       setSyncStatus({ type: 'error', message: err.message || 'Failed to sync location.' });
@@ -188,9 +188,32 @@ export default function AssessmentPage() {
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResponse | null>(null);
   const [isListening, setIsListening] = useState(false);
 
+  // Load saved assessment on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Check if we are explicitly requesting a new assessment (e.g., from Home page button)
+      const isNew = new URLSearchParams(window.location.search).get("new") === "true";
+
+      if (isNew) {
+        localStorage.removeItem("medilens_assessment_result");
+        // Remove the query parameter from the URL cleanly
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        const stored = localStorage.getItem("medilens_assessment_result");
+        if (stored) {
+          try {
+            setAssessmentResult(JSON.parse(stored));
+          } catch (e) {
+            console.error("Failed to parse stored assessment", e);
+          }
+        }
+      }
+    }
+  }, []);
+
   const handleVoiceInput = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
       toast.error("Speech recognition is not supported in your browser.");
       return;
@@ -252,9 +275,15 @@ export default function AssessmentPage() {
       };
 
       console.log("Submitting payload:", payload);
-      
+
       const response = await generateAssessment(payload);
       setAssessmentResult(response);
+
+      // Save to local storage to persist on refresh
+      if (typeof window !== "undefined") {
+        localStorage.setItem("medilens_assessment_result", JSON.stringify(response));
+      }
+
       setSuccess(true);
       toast.success("Assessment complete!");
     } catch (err: any) {
@@ -298,8 +327,8 @@ export default function AssessmentPage() {
         {/* Header and Language Switcher */}
         <div className="mb-10 flex items-start justify-between">
           <div className="flex items-start gap-4">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 shadow-sm transition-all hover:bg-zinc-50"
             >
               <ArrowLeft size={20} />
@@ -331,7 +360,7 @@ export default function AssessmentPage() {
                 <Camera size={20} />
                 <span>{t.visualEvidence}</span>
               </div>
-              
+
               <p className="mb-8 text-sm leading-relaxed text-zinc-500 font-medium">
                 {t.uploadPrompt}
               </p>
@@ -375,7 +404,7 @@ export default function AssessmentPage() {
 
               <div className="relative">
                 <label className="text-sm font-bold text-zinc-700 block mb-2">{t.selectMember}</label>
-                <div 
+                <div
                   className="relative group cursor-pointer"
                   onClick={() => setIsMemberDropdownOpen(!isMemberDropdownOpen)}
                 >
@@ -446,7 +475,7 @@ export default function AssessmentPage() {
                         <div className="flex flex-col items-center justify-center py-8 text-zinc-400">
                           <Plus size={32} className="mb-2 opacity-20" />
                           <p className="text-sm font-bold">{t.noMemberFound}</p>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               enableManualEntry();
@@ -592,12 +621,12 @@ export default function AssessmentPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-bold text-zinc-700">{t.additionalNotes}</label>
-                    <button 
+                    <button
                       onClick={handleVoiceInput}
                       className={cn(
                         "flex items-center gap-2 rounded-full px-4 py-1.5 text-[10px] font-black tracking-wider transition-all active:scale-95 shadow-sm border",
-                        isListening 
-                          ? "bg-red-50 text-red-600 border-red-200 animate-pulse ring-4 ring-red-500/10" 
+                        isListening
+                          ? "bg-red-50 text-red-600 border-red-200 animate-pulse ring-4 ring-red-500/10"
                           : "bg-zinc-50 text-zinc-600 border-zinc-100 hover:bg-zinc-100"
                       )}
                     >
@@ -633,13 +662,13 @@ export default function AssessmentPage() {
                   ✓ Assessment generated successfully!
                 </div>
               )}
-              <button 
+              <button
                 onClick={handleSubmit}
                 disabled={isLoading}
                 className={cn(
                   "group relative flex items-center justify-center overflow-hidden rounded-2xl px-12 py-5 text-xl font-black text-white shadow-xl transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed",
-                  isLoading 
-                    ? "bg-zinc-400 cursor-wait" 
+                  isLoading
+                    ? "bg-zinc-400 cursor-wait"
                     : "bg-gradient-to-r from-[#074185] to-[#1e60ad] hover:scale-[1.02] hover:shadow-2xl shadow-blue-900/20"
                 )}
               >

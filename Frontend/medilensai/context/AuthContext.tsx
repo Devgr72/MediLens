@@ -21,15 +21,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem("medilens_token");
-    // In a real app, you might want to verify the token here
-    // For now, we'll assume if there's a token but no user, we might need to fetch user info
-    // However, since we don't have a fetchUserProfile API yet, we'll rely on the login process
-    // and potentially store user info in localStorage too for persistence across refreshes
     const savedUser = localStorage.getItem("medilens_user");
+
+    // Clear stale mock tokens that won't work with the real backend.
+    // Real JWTs are always 3-part dot-separated strings (header.payload.signature).
+    if (token && token.startsWith("mock-")) {
+      localStorage.removeItem("medilens_token");
+      localStorage.removeItem("medilens_user");
+      setIsInitialLoad(false);
+      return;
+    }
+
     if (token && savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     }
     setIsInitialLoad(false);
+
+    // Listen for session expiry events triggered by API fetchers (401 Unauthorized)
+    const handleAuthExpired = () => {
+      setCurrentUser(null);
+      setIsAuthModalOpen(true); // Optional: Prompt them to log back in
+    };
+    window.addEventListener("auth_expired", handleAuthExpired);
+
+    return () => {
+      window.removeEventListener("auth_expired", handleAuthExpired);
+    };
   }, []);
 
   const login = (token: string, user: AuthResponse["user"]) => {
