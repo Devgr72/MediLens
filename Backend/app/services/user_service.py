@@ -10,8 +10,8 @@ from fastapi import HTTPException, status
 
 from app.config.database import get_database
 from app.core.logger import logger
-from app.models.user_model import user_document
-from app.schemas.user_schema import UserCreate, UserLogin
+from app.models.user_model import family_member_document, user_document
+from app.schemas.user_schema import FamilyMemberCreate, UserCreate, UserLogin
 from app.utils.security import (
     create_access_token,
     hash_password,
@@ -22,6 +22,7 @@ from app.utils.security import (
 # Collection name
 # ──────────────────────────────────────────────
 USERS_COLLECTION = "users"
+FAMILY_MEMBERS_COLLECTION = "family_members"
 
 
 async def get_user_by_email(email: str) -> Optional[dict]:
@@ -84,3 +85,70 @@ async def authenticate_user(payload: UserLogin) -> dict:
     token = create_access_token(data={"sub": user["email"]})
     logger.info("User authenticated — %s", user["email"])
     return {"access_token": token, "token_type": "bearer"}
+
+
+async def add_family_member(user_email: str, payload: FamilyMemberCreate) -> dict:
+    """Add a new family member linked to the current user."""
+    db = get_database()
+    
+    # 1. Look up user by email to get their _id
+    user = await get_user_by_email(user_email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    user_id_str = str(user["_id"])
+    
+    # 2. Build the family member document
+    doc = family_member_document(
+        user_id=user_id_str,
+        name=payload.name,
+        age=payload.age,
+        gender=payload.gender,
+        relationship=payload.relationship,
+    )
+    
+    # 3. Insert into database
+    result = await db[FAMILY_MEMBERS_COLLECTION].insert_one(doc)
+    
+    # 4. Map _id for response
+    doc["_id"] = str(result.inserted_id)
+    doc["id"] = doc["_id"]
+    
+    logger.info("Family member %s added for user %s", payload.name, user_email)
+    return doc
+
+
+async def get_user_profile(user_email: str) -> dict:
+    """Retrieve the user's profile along with all their linked family members."""
+    db = get_database()
+    
+    # 1. Get the user
+    user = await get_user_by_email(user_email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    user_id_str = str(user["_id"])
+    
+    # 2. Get all family members linked to this user
+    cursor = db[FAMILY_MEMBERS_COLLECTION].find({"user_id": user_id_str})
+    family_members = []
+    async for member in cursor:
+        member["_id"] = str(member["_id"])
+        member["id"] = member["_id"]
+        family_members.append(member)
+        
+    # 3. Map legacy schema fields for the response model
+    user["_id"] = user_id_str
+    user["id"] = user_id_str
+    user["full_name"] = user["name"]
+    user["is_active"] = user.get("is_verified", False)
+    user["updated_at"] = user.get("last_login", user.get("created_at"))
+    user["family_members"] = family_members
+    
+    return user

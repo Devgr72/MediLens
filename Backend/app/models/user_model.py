@@ -42,3 +42,21 @@ def otp_document(
         "attempts": 0,
         "created_at": now,
     }
+
+
+def family_member_document(
+    user_id: str,
+    name: str,
+    age: int,
+    gender: str,
+    relationship: str,
+) -> dict:
+    """Return a dict ready for insertion into the `family_members` collection."""
+    return {
+        "user_id": user_id,
+        "name": name,
+        "age": age,
+        "gender": gender,
+        "relationship": relationship,
+        "created_at": datetime.now(timezone.utc),
+    }

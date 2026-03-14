@@ -5,6 +5,7 @@ Request / response models used for validation and serialisation.
 """
 
 from datetime import datetime
+from typing import List
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -24,6 +25,14 @@ class UserLogin(BaseModel):
     password: str = Field(..., examples=["S3cur3P@ss!"])
 
 
+class FamilyMemberCreate(BaseModel):
+    """Payload to add a family member to a user's profile."""
+    name: str = Field(..., examples=["John Doe"])
+    age: int = Field(..., examples=[45])
+    gender: str = Field(..., examples=["Male"])
+    relationship: str = Field(..., examples=["Father"])
+
+
 # ── Response schemas ─────────────────────────
 
 class UserResponse(BaseModel):
@@ -35,6 +44,31 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    model_config = {"populate_by_name": True}
+
+
+class FamilyMemberResponse(BaseModel):
+    id: str = Field(..., alias="_id")
+    user_id: str
+    name: str
+    age: int
+    gender: str
+    relationship: str
+    created_at: datetime
+    
+    model_config = {"populate_by_name": True}
+
+
+class UserProfileResponse(BaseModel):
+    """Extends UserResponse by including their family members."""
+    id: str = Field(..., alias="_id")
+    full_name: str
+    email: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    family_members: List[FamilyMemberResponse] = []
+    
     model_config = {"populate_by_name": True}
 
 
