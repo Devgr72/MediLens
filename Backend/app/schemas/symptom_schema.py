@@ -62,3 +62,33 @@ class SymptomCheckResponse(BaseModel):
     status: str = "success"
     analysis: Dict[str, Any]
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AIHistoryPayload(BaseModel):
+    """Payload to save an explicitly verified / generated AI history result."""
+    summary: str
+    potential_causes: List[Any]
+    alternative_conditions: List[Dict[str, str]]
+    risk_level: str
+    triage_level: str
+    triage_advice: str
+    severity_score: int
+    visual_findings: str
+    suspected_condition: str
+    reasoning: str
+    first_aid: List[str]
+    watch_for: List[str]
+    specialist: str
+    ai_confidence: str
+    sources: List[str]
+    note: Optional[str] = None
+
+
+class AIHistoryResponse(BaseModel):
+    """Schema for a saved AI History document."""
+    id: str = Field(..., alias="_id")
+    user_email: str
+    result: AIHistoryPayload
+    created_at: datetime
+    
+    model_config = {"populate_by_name": True}

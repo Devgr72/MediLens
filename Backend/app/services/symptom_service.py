@@ -14,11 +14,13 @@ from fastapi import HTTPException, status, BackgroundTasks
 from app.config.database import get_database
 from app.config.settings import settings
 from app.core.logger import logger
+from app.schemas.symptom_schema import AIHistoryPayload
 
 # ──────────────────────────────────────────────
 # Constants
 # ──────────────────────────────────────────────
 SYMPTOM_CHECKS = "symptom_checks"
+AI_HISTORIES = "ai_histories"
 
 # ──────────────────────────────────────────────
 # Shared HTTP client (set from main.py on startup)
@@ -194,6 +196,7 @@ async def check_symptoms(
         "analysis": {
             "summary": ai_result.get("summary", ""),
             "potential_causes": ai_result.get("potential_causes", []),
+            "alternative_conditions": ai_result.get("alternative_conditions", []),
             "risk_level": ai_result.get("risk_level", "UNKNOWN"),
             "triage_level": ai_result.get("triage_level", "Level 5"),
             "triage_advice": ai_result.get("triage_advice", ""),
@@ -210,3 +213,35 @@ async def check_symptoms(
         },
         "created_at": now.isoformat(),
     }
+
+
+async def save_user_history(user_email: str, payload: AIHistoryPayload) -> dict:
+    """Explicitly save an AI analysis result for a logged-in user."""
+    db = get_database()
+    
+    doc = {
+        "user_email": user_email,
+        "result": payload.model_dump(),
+        "created_at": datetime.now(timezone.utc),
+    }
+    
+    result = await db[AI_HISTORIES].insert_one(doc)
+    doc["_id"] = str(result.inserted_id)
+    doc["id"] = doc["_id"]
+    
+    logger.info("Saved explicit AI history for user %s", user_email)
+    return doc
+
+
+async def get_user_history(user_email: str) -> List[dict]:
+    """Retrieve all saved AI histories for a user, sorted newest first."""
+    db = get_database()
+    
+    cursor = db[AI_HISTORIES].find({"user_email": user_email}).sort("created_at", -1)
+    histories = []
+    async for history in cursor:
+        history["_id"] = str(history["_id"])
+        history["id"] = history["_id"]
+        histories.append(history)
+        
+    return histories
